@@ -13,7 +13,5 @@ import type { City } from '../src/lib/types';
  */
 export const TRACKED_CITIES: City[] = [
 	{ id: 'belgrade', name: 'Beograd', country: 'RS', lat: 44.804, lon: 20.4651 },
-	{ id: 'novi-sad', name: 'Novi Sad', country: 'RS', lat: 45.2517, lon: 19.8369 },
-	{ id: 'nis', name: 'Niš', country: 'RS', lat: 43.319, lon: 21.8957 },
 	{ id: 'alghero', name: 'Alghero', country: 'IT', lat: 40.5588, lon: 8.3197 }
 ];
