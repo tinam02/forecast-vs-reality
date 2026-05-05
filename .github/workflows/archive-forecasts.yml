@@ -1,0 +1,40 @@
+name: Archive forecasts
+
+on:
+  schedule:
+    # 06:00 UTC daily — catches the morning Open-Meteo model run for
+    # most regions. Time of day matters: forecasts evolve through the
+    # day as new model runs come in; we want a consistent snapshot.
+    - cron: '0 6 * * *'
+  workflow_dispatch: # let me trigger manually too
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run archiver
+        run: node --experimental-strip-types scripts/archive.ts
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/
+          if git diff --staged --quiet; then
+            echo 'No data changes to commit.'
+          else
+            git commit -m "data: archive forecasts $(date -u +%Y-%m-%d)"
+            git push
+          fi
