@@ -1,0 +1,47 @@
+{
+  "name": "forecast-vs-reality",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "How wrong was the forecast? Compare past predictions to what actually happened, using free Open-Meteo APIs.",
+  "license": "MIT",
+  "author": "Tina",
+  "homepage": "https://tinam02.github.io/forecast-vs-reality",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tinam02/forecast-vs-reality.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tinam02/forecast-vs-reality/issues"
+  },
+  "keywords": [
+    "weather",
+    "forecast",
+    "accuracy",
+    "open-meteo",
+    "sveltekit"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "geocode": "node --experimental-strip-types scripts/geocode.ts"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.8.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@types/node": "^22.9.0",
+    "svelte": "^5.1.16",
+    "svelte-check": "^4.0.7",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.6"
+  }
+}
