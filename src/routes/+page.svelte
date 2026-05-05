@@ -1,12 +1,18 @@
 <script lang="ts">
 	import {
-		fetchForecastVsActual,
-		fetchHistoricalDay,
+		fetchComparison,
 		geocodeCity,
+		computeLieScore,
 		MAX_LEAD_DAYS
 	} from '$lib/openmeteo';
-	import type { ForecastVsActual, GeocodingResult, HistoricalDay } from '$lib/types';
+	import type {
+		GeocodingResult,
+		LieScore,
+		MultiVariableComparison,
+		VariableComparison
+	} from '$lib/types';
 	import TempChart from '$lib/TempChart.svelte';
+	import LieMeter from '$lib/LieMeter.svelte';
 
 	let query = $state('Belgrade');
 	let candidates = $state<GeocodingResult[]>([]);
@@ -15,8 +21,8 @@
 	let targetDate = $state(defaultTargetDate());
 	let leadDays = $state(7);
 
-	let comparison = $state<ForecastVsActual | null>(null);
-	let actualDay = $state<HistoricalDay | null>(null);
+	let comparison = $state<MultiVariableComparison | null>(null);
+	let lieScore = $state<LieScore | null>(null);
 
 	let loading = $state(false);
 	let errorMsg = $state('');
@@ -45,12 +51,9 @@
 		errorMsg = '';
 		loading = true;
 		try {
-			const [forecast, actual] = await Promise.all([
-				fetchForecastVsActual(selected.latitude, selected.longitude, targetDate, leadDays),
-				fetchHistoricalDay(selected.latitude, selected.longitude, targetDate)
-			]);
-			comparison = forecast;
-			actualDay = actual;
+			const c = await fetchComparison(selected.latitude, selected.longitude, targetDate, leadDays);
+			comparison = c;
+			lieScore = computeLieScore(c);
 		} catch (e) {
 			errorMsg = (e as Error).message;
 		} finally {
@@ -58,16 +61,33 @@
 		}
 	}
 
-	function diff(a: number | null, b: number | null): string {
-		if (a === null || b === null) return '—';
-		const d = a - b;
-		const sign = d > 0 ? '+' : '';
-		return `${sign}${d.toFixed(1)}°C`;
+	function fmt(value: number | null, digits: number, unit: string): string {
+		if (value === null) return '—';
+		return `${value.toFixed(digits)}${unit}`;
 	}
+
+	function delta(pair: VariableComparison, digits: number, unit: string): string {
+		if (pair.actual === null || pair.predicted === null) return '—';
+		const d = pair.predicted - pair.actual;
+		const sign = d > 0 ? '+' : '';
+		return `${sign}${d.toFixed(digits)}${unit}`;
+	}
+
+	const cards = $derived.by(() => {
+		if (!comparison) return [];
+		const c = comparison;
+		return [
+			{ label: 'Daily max', pair: c.tempMax, digits: 1, unit: '°C' },
+			{ label: 'Daily min', pair: c.tempMin, digits: 1, unit: '°C' },
+			{ label: 'Precipitation', pair: c.precipitationSum, digits: 1, unit: ' mm' },
+			{ label: 'Max wind', pair: c.windMax, digits: 1, unit: ' km/h' },
+			{ label: 'Cloud cover', pair: c.cloudMean, digits: 0, unit: '%' }
+		];
+	});
 </script>
 
 <main>
-	<h1>Weather Forecast Accuracy</h1>
+	<h1>Forecast vs Reality</h1>
 	<p class="lede">
 		Pick a city and a past date. See what the forecast said N days earlier vs. what actually
 		happened.
@@ -117,33 +137,31 @@
 		<p class="error">{errorMsg}</p>
 	{/if}
 
-	{#if comparison && actualDay}
-		<section class="summary">
-			<div class="card">
-				<h3>Daily max</h3>
-				<p class="big">{actualDay.tempMax?.toFixed(1) ?? '—'}°C <span class="label">actual</span></p>
-				<p>
-					{comparison.dailyPredictedMax?.toFixed(1) ?? '—'}°C
-					<span class="label">predicted ({leadDays}d lead)</span>
-				</p>
-				<p class="diff">Δ {diff(comparison.dailyPredictedMax, actualDay.tempMax)}</p>
-			</div>
-			<div class="card">
-				<h3>Daily min</h3>
-				<p class="big">{actualDay.tempMin?.toFixed(1) ?? '—'}°C <span class="label">actual</span></p>
-				<p>
-					{comparison.dailyPredictedMin?.toFixed(1) ?? '—'}°C
-					<span class="label">predicted ({leadDays}d lead)</span>
-				</p>
-				<p class="diff">Δ {diff(comparison.dailyPredictedMin, actualDay.tempMin)}</p>
-			</div>
+	{#if comparison && lieScore}
+		<LieMeter {lieScore} />
+
+		<section class="cards">
+			{#each cards as card (card.label)}
+				<div class="card">
+					<h3>{card.label}</h3>
+					<p class="big">
+						{fmt(card.pair.actual, card.digits, card.unit)}
+						<span class="label">actual</span>
+					</p>
+					<p>
+						{fmt(card.pair.predicted, card.digits, card.unit)}
+						<span class="label">predicted ({leadDays}d lead)</span>
+					</p>
+					<p class="diff">Δ {delta(card.pair, card.digits, card.unit)}</p>
+				</div>
+			{/each}
 		</section>
 
 		<section class="chart">
 			<TempChart
 				time={comparison.hourlyTime}
-				actual={comparison.hourlyActual}
-				predicted={comparison.hourlyPredicted}
+				actual={comparison.hourlyTempActual}
+				predicted={comparison.hourlyTempPredicted}
 				leadDays={comparison.leadDays}
 			/>
 		</section>
@@ -159,7 +177,7 @@
 
 <style>
 	main {
-		max-width: 880px;
+		max-width: 960px;
 		margin: 2rem auto;
 		padding: 0 1rem;
 		font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -210,36 +228,38 @@
 		color: #b00;
 		font-weight: bold;
 	}
-	.summary {
+	.cards {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+		gap: 0.75rem;
 		margin: 1rem 0;
 	}
 	.card {
 		background: #fff;
 		border: 1px solid #ddd;
 		border-radius: 8px;
-		padding: 1rem;
+		padding: 0.85rem;
 	}
 	.card h3 {
-		margin: 0 0 0.5rem;
+		margin: 0 0 0.4rem;
+		font-size: 0.95rem;
+		color: #555;
 	}
 	.big {
-		font-size: 1.6rem;
+		font-size: 1.4rem;
 		font-weight: 600;
-		margin: 0.25rem 0;
+		margin: 0.15rem 0;
 	}
 	.label {
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 		color: #666;
 		font-weight: normal;
 	}
 	.diff {
-		font-size: 1.1rem;
+		font-size: 1rem;
 		font-weight: 600;
 		color: #c24545;
-		margin-top: 0.5rem;
+		margin-top: 0.4rem;
 	}
 	.chart {
 		margin-top: 1rem;

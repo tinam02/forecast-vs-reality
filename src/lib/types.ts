@@ -18,24 +18,25 @@ export interface GeocodingResult {
 	timezone?: string;
 }
 
-export interface ForecastVsActual {
-	targetDate: string;
-	leadDays: number;
-	hourlyTime: string[];
-	hourlyActual: (number | null)[];
-	hourlyPredicted: (number | null)[];
-	dailyActualMax: number | null;
-	dailyActualMin: number | null;
-	dailyPredictedMax: number | null;
-	dailyPredictedMin: number | null;
+export interface VariableComparison {
+	predicted: number | null;
+	actual: number | null;
 }
 
-export interface HistoricalDay {
-	date: string;
-	tempMax: number | null;
-	tempMin: number | null;
-	precipitation: number | null;
-	windSpeedMax: number | null;
-	weatherCode: number | null;
-	cloudCoverMean: number | null;
+export interface MultiVariableComparison {
+	targetDate: string;
+	leadDays: number;
+	tempMax: VariableComparison;
+	tempMin: VariableComparison;
+	precipitationSum: VariableComparison;
+	windMax: VariableComparison;
+	cloudMean: VariableComparison;
+	hourlyTime: string[];
+	hourlyTempActual: (number | null)[];
+	hourlyTempPredicted: (number | null)[];
+}
+
+export interface LieScore {
+	score: number;
+	contributions: Partial<Record<keyof MultiVariableComparison, number>>;
 }
