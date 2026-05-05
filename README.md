@@ -2,7 +2,7 @@
 
 How wrong was the forecast? Pick a city and a past date, see what the forecast said N days earlier vs. what actually happened.
 
-Built on free [Open-Meteo](https://open-meteo.com/) APIs. Static SvelteKit app, no backend, no database.
+Built on free [Open-Meteo](https://open-meteo.com/) APIs
 
 ## Two-phase plan
 
